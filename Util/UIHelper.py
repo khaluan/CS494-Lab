@@ -7,7 +7,10 @@ from Model.player import Player
 from Config.constant import *
 from Config.config import *
 
-def get_location(x, y):
+def get_location(pos, margin = 0):
+    x, y = pos
     H, W = WINDOW_SIZE
-    return (int(H * x), int(W * y))
+    return (int(H * x - margin), int(W * y - margin))
 
+
+#TODO: Wrap text display
