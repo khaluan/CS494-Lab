@@ -227,10 +227,10 @@ class Game:
         response = json.loads(response_str)
 
         self.current_player_name = response['playername']
-        self.remain_questions = response['remain question']
+        self.remain_questions = response['remain-question']
 
         question_json = response['question']
-        question = Question(question_json['question'], question_json['choice'])
+        question = Question(question_json['question'], question_json['choices'])
         return question
 
     def display_question(self, question):

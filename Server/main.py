@@ -3,6 +3,7 @@ import threading
 import json
 import logging
 import time
+import random
 
 import os
 import sys
@@ -12,7 +13,6 @@ sys.path.append(parentdir)
 
 from Config.config import *
 from Config.constant import *
-
 
 class Player:
     def __init__(self, conn, add, name='', order=-1):
@@ -27,8 +27,14 @@ class Server:
         # Initialize game's parameters
         self.num_player = num_player
         self.num_questions = num_questions
+
+        # Prepare list of players
         self.players: list[Player] = []
         self.players_lock: threading.Lock = threading.Lock()
+
+        # Prepare list of questions
+        self.questions: list[Player] = []
+        self.questions_lock: threading.Lock = threading.Lock()
 
         # Innitialize host, port, and list of threads for connections of the game
         self.host = host
@@ -83,8 +89,10 @@ class Server:
         if debug:
             print(f"The connection from {add} is closed.")
 
-    # All json error will result in server closing the socket.
     def _handle_unrecognized_message(self, conn: socket.socket, add, e: json.decoder.JSONDecodeError = None):
+        """
+        All json error will result in server closing the socket.
+        """
         if e is not None:
             erm = "unknown type of message (not json)"
             sent = "error-not-json"
@@ -175,6 +183,8 @@ class Server:
                             return
                 else:
                     self._handle_unrecognized_message(conn, add)
+                    with condition_obj:
+                        condition_obj.notify()
                     return
 
     def _handle_new_connection(self, event: threading.Event, condition_obj: threading.Condition):
@@ -256,16 +266,72 @@ class Server:
                     self._handle_unrecognized_message(conn, add)
                     continue
 
-    def _load_question(self, event: threading.Event):
-        pass
+    def _load_questions(self, event: threading.Event):
+        with self.questions_lock:
+            with open(currentdir + '/questions.json') as file:
+                db = json.load(file)
+            questions = db["questions"]
+            self.questions = random.sample(questions, MAX_QUESTIONS)
+            event.set()
+
+    def _send_config_recv_response(self, msg: str, conn: socket.socket):
+        conn.sendall(bytes(msg, 'utf-8'))
+        conn.recv(BUFFER_SIZE)
+
+    def _get_current_player(self, playable_player: list[bool], cur: int = None):
+        if cur is None:
+            return 0
+        else:
+            for i in range(cur, len(playable_player)):
+                if playable_player[i]:
+                    return i
+
+    def _question_message(self, cur_player, question_idx, question):
+        return json.dumps({"questions": question, "playername": self.players[cur_player].name, "remain-question": MAX_QUESTIONS-1-question_idx})
+
+    def run_game(self):
+        # Send config
+        list_dict_players = []
+        threads = []
+        for player in self.players:
+            list_dict_players.append(
+                {"name": player.name, "order": player.order})
+        msg = json.dumps({"players": list_dict_players,
+                         "questions": MAX_QUESTIONS, "timeout": TIMEOUT})
+
+        for player in self.players:
+            thread_id = threading.Thread(
+                target=self._send_config, args=(msg, player.conn))
+            threads.append(thread_id)
+            thread_id.start()
+
+        for thread in threads:
+            thread.join()
+
+        playable_player = [True] * len(self.players)
+
+        # Start the game, begin to send questions
+        threads = []
+        cur_player = self._get_current_player(playable_player)
+
+        for idx, question in enumerate(self.questions):
+            msg = self._question_message(cur_player, idx, question)
+            for idp, player in enumerate(self.players):
+                if idp == cur_player:
+                    thread_id = threading.Thread(
+                        target=self._send_config, args=(msg, player.conn))
+                else:
+                    pass
+                threads.append(thread_id)
+                thread_id.start()
 
     def run(self):
-        # Start to receive incomming connection and to load question into memory.
-        # Each job will be allocated to a thread
-        # Main thread (function run()) will wait for the completion of two jobs before continuing with the game
-        # Receiving incomming connection will finished when there are enough players connected to the server or timeout (5 mins)
-        # Loading question will finished when the required number of questions loaded or timeout (1 mins)
-        # Waiting will use Event Object
+        """Start to receive incomming connection and to load question into memory.
+        Each job will be allocated to a thread
+        Main thread (function run()) will wait for the completion of two jobs before continuing with the game
+        Receiving incomming connection will finished when there are enough players connected to the server or timeout (5 mins)
+        Loading question will finished when the required number of questions loaded or timeout (1 mins)
+        Waiting will use Event Object"""
 
         # Setup thread that handles cancelling accepted connections
         cancl_condi = threading.Condition()
@@ -280,26 +346,26 @@ class Server:
         new_connection_thread.start()
 
         # Set up thread handles loading questions
-        # wait_loading = threading.Event()
-        # load_question_thread = threading.Thread(
-        #     target=self._load_question, args=(wait_loading))
-        # load_question_thread.start()
+        wait_loading = threading.Event()
+        load_question_thread = threading.Thread(
+            target=self._load_questions, args=(wait_loading,))
+        load_question_thread.start()
 
         ############################################################
         ## Waiting for players' connections and loading questions ##
         ############################################################
 
         # Wait for loading first as it tends to be faster
-        # loading_state = wait_loading.wait(60)
-        # if not loading_state:
-        #     # TODO: Handle loading questions timeout
-        #     pass
+        loading_state = wait_loading.wait(5)
+        if not loading_state:
+            print(
+                "FATAL: Database takes too much time to load questions, server will be forced to shutdown.")
 
         # Wait for players' connections
-        connecting_state = wait_connecting.wait(10)
+        connecting_state = wait_connecting.wait(120)
         if not connecting_state:
-            # TODO: Handle connection timeout (not enough players)
-            pass
+            print(
+                "WARN: Waiting players for too long, server will closed all connections and start new game.")
 
         # Assume everything is good
         # Set the game status to started
@@ -313,11 +379,8 @@ class Server:
         print(f"{cancelling_connection_thread.name} ended.")
 
         # Join the cancelling_connection_thread
-        # load_question_thread.join()
-
-        # And then clear the event
-        wait_connecting.clear()
-        # wait_loading.clear()
+        load_question_thread.join()
+        print(f"{load_question_thread.name} ended.")
 
         # We do not join new_connection_thread to let new connections comming in and then refuse them.
 

@@ -4,6 +4,8 @@ PORT = 1337
 
 # Game config
 MAX_PLAYERS = 2
+MAX_QUESTIONS = 4
+TIMEOUT = 30
 
 ###############################
 # This section is for styling #
