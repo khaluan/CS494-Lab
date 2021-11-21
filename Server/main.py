@@ -75,8 +75,6 @@ class Server:
                         msg = json.dumps({"type":RESPONSE_NAME, "status":NO})
                         conn.sendall(bytes(msg, 'utf-8'))
                 else:
-                    conn.sendall(bytes(json.dumps({"type":RESPONSE_NAME, "contents":"error-wrong-format"}), 'utf-8'))
-                    conn.close()
                     try:
                         print(f"Try to inform client {add} about the error.")
                         msg = json.dumps({"type":RESPONSE_NAME, "contents":"error-wrong-format"})
