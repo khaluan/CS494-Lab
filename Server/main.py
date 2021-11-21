@@ -177,7 +177,5 @@ class Server:
             thread.join()
         print("Connections from players have been stopped...")
 
-
-
 if __name__ == '__main__':
     main()
