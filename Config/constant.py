@@ -7,6 +7,13 @@ BACKGROUND = WHITE
 
 # Custom pygame event code
 SERVER_RESPONSE = USEREVENT + 1
+BUFFER_SIZE = 1024
+
+# Constant string
+REQUEST_SLOT = "request-slot"
+REGISTER_NAME = "register name"
+OK = "OK"
+NO = "NO"
 
 # Regex
 NAME_REGEX = '^[a-zA-Z0-9_]{0,10}$'
@@ -15,3 +22,4 @@ CHOICE_REGEX = '^[A-D]{0,1}$'
 # Asset path
 LOGO_PATH = 'Asset/Logo.png'
 PLAYER_PATH = 'Asset/Player.png'
+FIREWORK_PATH = 'Asset/Firework.jpg'
