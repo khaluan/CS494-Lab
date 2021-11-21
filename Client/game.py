@@ -208,6 +208,10 @@ class Game:
         self.remain_players = len(players)
         for player in players:
             self.players.append(Player(player['name'], player['order']))
+        
+        response = {"type": RESPONSE_CONFIG, 'content':"ack"}
+        response = json.dumps(response).encode()
+        self.socket.sendall(response)
 
     def recv_config(self):
         config_str = self.socket.recv(BUFFER_SIZE)

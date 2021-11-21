@@ -13,3 +13,4 @@ Usage: python3 Client/main.py <wait_time>
 The client will create a connection to the server wait for <wait_time> seconds before sending message to server. 
 
 Adjust the different <wait_time> to test whether the program is blocked while waiting for message from other clients.
+

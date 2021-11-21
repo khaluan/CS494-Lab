@@ -14,6 +14,7 @@ REQUEST_SLOT = "request-slot"
 REGISTER_NAME = "register-name"
 RESPONSE_SLOT = "response-slot"
 RESPONSE_NAME = "response-name"
+RESPONSE_CONFIG = "response-config"
 OK = "OK"
 NO = "NO"
 FULL = 'full'
