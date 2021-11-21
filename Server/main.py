@@ -61,6 +61,21 @@ class Server:
                                 break
                     if not dup_name:
                         print(f"Received player\'s name from {add} is accepted.")
+                        try:
+                            msg = json.dumps({"type":RESPONSE_NAME, "status":OK, "order":order})
+                            conn.sendall(bytes(msg, 'utf-8'))
+                        except ConnectionError as ce:
+                            print(f"Connection error when trying to inform client {add} about available name:\n{e}\n")
+                            print("Continue to close socket.")
+                            conn.close()
+                            print(f"Socket from {add} is closed.")
+                            return
+                        except Exception as e:
+                            print(f"Unknown error when trying to inform client {add} about available name:\n{e}\n")
+                            print("Continue to close socket.")
+                            conn.close()
+                            print(f"Socket from {add} is closed.")
+                            return
                         with self.players_lock:
                             if len(self.players):
                                 order = self.players[-1].order + 1
@@ -69,11 +84,23 @@ class Server:
                             player = Player(conn, add, request_name, order)
                             self.players.append(player)
                         player_accpeted = True
-                        msg = json.dumps({"type":RESPONSE_NAME, "status":OK, "order":order})
-                        conn.sendall(bytes(msg, 'utf-8'))
+                        print(f"Player from {add} accepted with name \"{request_name}\" and order \"{order}\" ")
                     else:
-                        msg = json.dumps({"type":RESPONSE_NAME, "status":NO})
-                        conn.sendall(bytes(msg, 'utf-8'))
+                        try:
+                            msg = json.dumps({"type":RESPONSE_NAME, "status":NO})
+                            conn.sendall(bytes(msg, 'utf-8'))
+                        except ConnectionError as ce:
+                            print(f"Connection error when trying to inform client {add} about duplicate name:\n{e}\n")
+                            print("Continue to close socket.")
+                            conn.close()
+                            print(f"Socket from {add} is closed.")
+                            return
+                        except Exception as e:
+                            print(f"Unknown error when trying to inform client {add} about duplicate name:\n{e}\n")
+                            print("Continue to close socket.")
+                            conn.close()
+                            print(f"Socket from {add} is closed.")
+                            return
                 else:
                     try:
                         print(f"Try to inform client {add} about the error.")
@@ -109,11 +136,13 @@ class Server:
                 print(f"Error when registering client with connection {add}:\n{e}\n")
                 print("Server will close socket.")
                 conn.close()
+                print(f"Socket from {add} is closed.")
                 return
             except Exception as e:
                 print(f"Unknown error when registering client with connection {add}:\n{e}\n")
                 print("Server will close socket.")
                 conn.close()
+                print(f"Socket from {add} is closed.")
                 return
     
     def _receive_new_connection(self):
@@ -170,19 +199,11 @@ class Server:
         while len(self.players) != self.num_player:
             if len(self.players) > self.num_player:
                 print("Error: More connected players than specified.")
-                # return
-            # if delay_count == 5:
-            #     if len(self.threads):
-            #         for thread in self.threads:
-            #             print(thread.name, thread.is_alive())
-            #     else:
-            #         print("No connections.")
-            #     delay_count = 0
-            # time.sleep(1)
-            # delay_count += 1
 
         for thread in self.threads:
             thread.join()
+
+        self.threads = []
 
         # create new threads
 
