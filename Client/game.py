@@ -315,6 +315,9 @@ class Game:
             pygame.display.update()
         
         self.handle_verdict(verdict)
+        self.display_remaining_players(player_img)
+        pygame.display.update()
+        time.sleep(1.5)
 
     def send_answer(self, question, answer):
         data = {"answer": answer, "question": question}
@@ -327,8 +330,16 @@ class Game:
         return verdict['verdict']
 
     def handle_verdict(self, verdict):
-        # TODO: Display and handle verdict
-        pass
+        font = pygame.font.SysFont(FONT, 25)
+        verdict_text = ''
+        if verdict == OK:
+            verdict_text = font.render(f'Player {self.current_player_name} correct', False, BLACK)
+        elif verdict == NO:
+            verdict_text = font.render(f'Player {self.current_player_name} eliminated', False, BLACK)
+        elif verdict == SKIP:
+            verdict_text = font.render(f'Player {self.current_player_name} skip turn', False, BLACK)
+            self.remain_players -= 1
+        center(self.screen, verdict_text, 0.1)
 
     def display_remaining_players(self, image):
         left = (WINDOW_SIZE[0] - self.remain_players * 100) // 2
@@ -384,4 +395,3 @@ class Game:
         self.socket.close()
 
         exit(0)
-

@@ -18,6 +18,7 @@ RESPONSE_CONFIG = "response-config"
 OK = "OK"
 NO = "NO"
 FULL = 'full'
+SKIP = 'skip'
 
 # Regex
 NAME_REGEX = '^[a-zA-Z0-9_]{0,10}$'
