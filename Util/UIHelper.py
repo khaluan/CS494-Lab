@@ -12,5 +12,13 @@ def get_location(pos, margin = 0):
     H, W = WINDOW_SIZE
     return (int(H * x - margin), int(W * y - margin))
 
+def center(screen, surface, y):
+    rect = None
+    if y > 1:
+        rect = surface.get_rect(center=(WINDOW_SIZE[0] / 2, y))
+    else:
+        rect = surface.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] * y))
+    screen.blit(surface, rect)
+
 
 #TODO: Wrap text display

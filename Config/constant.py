@@ -16,6 +16,7 @@ RESPONSE_SLOT = "response-slot"
 RESPONSE_NAME = "response-name"
 OK = "OK"
 NO = "NO"
+FULL = 'full'
 
 # Regex
 NAME_REGEX = '^[a-zA-Z0-9_]{0,10}$'

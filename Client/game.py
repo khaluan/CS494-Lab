@@ -40,14 +40,14 @@ class Game:
 
         self.async_listener = []      
         
-        # TODO: REMOVE
-        self.remain_players = 3
-        self.timeout = 10
+        #################### DEBUG SESSION ###########################
+        # self.remain_players = 3
+        # self.timeout = 10
         
-        self.current_player_name = 'b3luga'
-        self.player.name = 'b3luga'
+        # self.current_player_name = 'b3luga'
+        # self.player.name = 'b3luga'
         
-        self.remain_questions = 2
+        # self.remain_questions = 2
 
     """
         Event listeners
@@ -80,8 +80,9 @@ class Game:
     def run(self):
         running = True
         while running:
-            connected = self.initialize_connection()
-            if connected: 
+            status = self.initialize_connection()
+            self.waiting_screen(status)
+            if status == OK: 
                 self.register_name()
                 self.start_game()
                 self.display_result()
@@ -90,18 +91,17 @@ class Game:
                     
     """
         Connecting stage
-        #TODO: Waiting room screen
     """
     def initialize_connection(self):
-        data = {"type": REQUEST_SLOT, "contents": "join"}
+        data = {"type": REQUEST_SLOT, "contents": REQUEST_SLOT}
         data_str = json.dumps(data).encode()
+        self.socket.sendall(data_str)
         
         data_str = self.socket.recv(BUFFER_SIZE)
         self.logger.warning(f"Receiving from server {data_str}")
         data = json.loads(data_str)
-        game_status = data['content']
+        game_status = data['contents']
         if game_status == 'full':
-            # TODO: display game is full
             return False
         elif game_status == 'ok':
             return True
@@ -114,59 +114,91 @@ class Game:
         return regex.match(player_name)
     
     def validate_name(self, player_name):
-        """"
-            TODO: This function send player_name to server for validation
-        """
         data = {"type": REGISTER_NAME, "name": player_name}
         data_str = json.dumps(data)
-        self.socket.sendall(data_str)
+        self.socket.sendall(data_str.encode())
 
         response_str = self.socket.recv(BUFFER_SIZE)
         self.logger.warning(f'Checking name, received {response_str}')
         response = json.loads(response_str)
         if response['status'] == OK:
             self.player.order = response['order']
-            return True
+            return OK
         elif response['status'] == NO:
-            return False
+            return NO
+        elif response['status'] == FULL:
+            return FULL
 
         self.logger.warning("Checking name: Unknown status")
 
     def register_name(self):
         background = pygame.image.load(LOGO_PATH)
-        myfont = pygame.font.SysFont('Comic Sans MS', 30)
+        myfont = pygame.font.SysFont('Comic Sans MS', 25)
         name_title = myfont.render("Input your name", False, BLACK)
+        is_full = True
+        def activate():
+            pygame.event.post(pygame.event.Event(USEREVENT))
 
         while True:
+
             input_manager = pygame_textinput.TextInputManager(validator= lambda input: re.compile(NAME_REGEX).match(input))
             name_input = pygame_textinput.TextInputVisualizer(manager = input_manager)
             
             input = True
+
             while input:
                 self.screen.fill(BACKGROUND)
 
                 events = pygame.event.get()
-
-                name_input.update(events)
-                self.screen.blit(background, (0, 0))
-                self.screen.blit(name_title, get_location((0.3, 0.8)))
-                self.screen.blit(name_input.surface, get_location((0.4, 0.9)))
-                pygame.display.update()
                 for event in events:
                     if event.type == KEYDOWN and event.key == K_RETURN:
                         input = False
                         break
+                    elif event.type == USEREVENT:
+                        is_full = False
+
+                name_input.update(events)
+                self.screen.blit(background, (0, 0))
+                center(self.screen, name_title, 0.82)
+                center(self.screen, name_input.surface, 0.89)
+                if is_full:
+                    announcement = myfont.render('Sorry the game is full', False, BLACK) 
+                    center(self.screen, announcement, 0.95)
+                    timer = threading.Timer(1.5, activate)
+                    timer.start()
+                pygame.display.update()
 
             player_name = name_input.value
             if self.validate_name(player_name):
                 self.player.name = player_name
                 break
+            else:
+                is_full = True
+        self.logger.warning(f"Register complete, player name: {self.player.name}, order: {self.player.order}")
+
+    def waiting_screen(self):
+        font = pygame.font.SysFont(FONT, QUESTION_SIZE)
+        waiting_title = font.render("Please wait for other players", False, BLACK)
+        waiting = True
+ 
+        player_img = pygame.image.load(PLAYER_PATH)
+        #TODO: Setup async an async listener to listen to other player to join and display
+ 
+        while waiting:
+            center(self.screen, waiting_title, 0.1)
+
+            events = pygame.event.get()
+            for event in events:
+                if event.type == SERVER_RESPONSE:
+                    self.remain_players += 1
+                    self.display_remaining_players(player_img)
+
+            pygame.display.update()
 
     """
         Gameplay screen
     """
     def setup_config(self):
-        # TODO: read config from server
         config = self.recv_config()
 
         self.timeout = config['timeout']
@@ -277,8 +309,8 @@ class Game:
                     waiting = False
 
             pygame.display.update()
-
-        # TODO: Handle and Display verdict
+        
+        self.handle_verdict(verdict)
 
     def send_answer(self, question, answer):
         data = {"answer": answer, "question": question}
@@ -309,9 +341,7 @@ class Game:
     """
 
     def display_result(self):
-        # winner_str = self.socket.recv(BUFFER_SIZE)
-        # TODO: Remove the following line and uncomment the upper line
-        winner_str = json.dumps({'winner': 'b3luga'})
+        winner_str = self.socket.recv(BUFFER_SIZE)
         self.logger.warning(f"Recv final result: {winner_str}")
 
         winner = json.loads(winner_str)
@@ -337,7 +367,6 @@ class Game:
         return self.player.name == self.current_player_name
 
     def notify_exit(self):
-        # TODO: I dont know what to do
         pass
 
     def __del__(self):
@@ -352,6 +381,3 @@ class Game:
 
         exit(0)
 
-        
-# game = Game()
-# game.display_result()
