@@ -62,6 +62,13 @@ class Server:
                     if not dup_name:
                         print(f"Received player\'s name from {add} is accepted.")
                         try:
+                            with self.players_lock:
+                                if len(self.players):
+                                    order = self.players[-1].order + 1
+                                else:
+                                    order = 1
+                                player = Player(conn, add, request_name, order)
+                                self.players.append(player)
                             msg = json.dumps({"type":RESPONSE_NAME, "status":OK, "order":order})
                             conn.sendall(bytes(msg, 'utf-8'))
                         except ConnectionError as ce:
@@ -76,15 +83,9 @@ class Server:
                             conn.close()
                             print(f"Socket from {add} is closed.")
                             return
-                        with self.players_lock:
-                            if len(self.players):
-                                order = self.players[-1].order + 1
-                            else:
-                                order = 1
-                            player = Player(conn, add, request_name, order)
-                            self.players.append(player)
-                        player_accpeted = True
-                        print(f"Player from {add} accepted with name \"{request_name}\" and order \"{order}\" ")
+                        else:
+                            player_accpeted = True
+                            print(f"Player from {add} accepted with name \"{request_name}\" and order \"{order}\" ")
                     else:
                         try:
                             msg = json.dumps({"type":RESPONSE_NAME, "status":NO})
