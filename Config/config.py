@@ -5,7 +5,6 @@ PORT = 1337
 # Game config
 MAX_PLAYERS = 2
 
-
 ###############################
 # This section is for styling #
 ###############################
