@@ -41,7 +41,7 @@ class Server:
         # Game status
         self.is_started = False
 
-    def _register_player(self, conn: socket.socket, add, thread_id: int):
+    def _register_player(self, conn: socket.socket, add):
         player_accpeted = False
         order = 0
         player = None
@@ -51,8 +51,8 @@ class Server:
                 data = conn.recv(1024).decode('utf-8')
                 print(f"Received player\'s name from {add}: {data}")
                 data = json.loads(data)
-                if data["type"] == "request-name":
-                    request_name = data["contents"]
+                if data["type"] == REGISTER_NAME:
+                    request_name = data["name"]
                     dup_name = False
                     with self.players_lock:
                         for player in self.players:
@@ -69,32 +69,52 @@ class Server:
                             player = Player(conn, add, request_name, order)
                             self.players.append(player)
                         player_accpeted = True
-                        msg = json.dumps({"type":"response-name", "status":"OK", "order":order})
+                        msg = json.dumps({"type":RESPONSE_NAME, "status":OK, "order":order})
                         conn.sendall(bytes(msg, 'utf-8'))
                     else:
-                        msg = json.dumps({"type":"response-name", "status":"NO"})
+                        msg = json.dumps({"type":RESPONSE_NAME, "status":NO})
                         conn.sendall(bytes(msg, 'utf-8'))
                 else:
-                    conn.sendall(bytes(json.dumps({"type":"response-name", "contents":"error-wrong-format"}), 'utf-8'))
+                    conn.sendall(bytes(json.dumps({"type":RESPONSE_NAME, "contents":"error-wrong-format"}), 'utf-8'))
                     conn.close()
+                    try:
+                        print(f"Try to inform client {add} about the error.")
+                        msg = json.dumps({"type":RESPONSE_NAME, "contents":"error-wrong-format"})
+                        conn.sendall(bytes(msg, 'utf-8'))
+                    except ConnectionError as ce:
+                        print(f"Connection error when trying to inform client {add} about wrong format message:\n{e}\n")
+                        print("Continue to close socket.")
+                    except Exception as e:
+                        print(f"Unknown error when trying to inform client {add} about wrong format message:\n{e}\n")
+                        print("Continue to close socket.")
+                    finally:
+                        conn.close()
+                        print(f"Socket from {add} is closed.")
+                        return
             except json.JSONDecodeError as e:
-                msg = json.dumps({"type":"response-name", "contents":"error-not-json"})
-                print(f"Player from {add} sent wrong format message, waiting for new request.")
+                print(f"Client from {add} sent did not sent a json, server will close socket.")
                 try:
+                    print(f"Try to inform client {add} about the wrong json.")
+                    msg = json.dumps({"type":RESPONSE_NAME, "contents":"error-not-json"})
                     conn.sendall(bytes(msg, 'utf-8'))
                 except ConnectionError as ce:
-                    print(f"Cannot send message to player from {add}.")
-                    if player_accpeted:
-                        print("Attempting to remove the player from the list.")
-                        with self.players_lock:
-                            self.players.remove(player)
-                        print("Removed player from the list.")
+                    print(f"Connection error when trying to inform client {add} about the wrong json:\n{e}\n")
+                    print("Continue to close socket.")
+                except Exception as e:
+                    print(f"Unknown error when trying to inform client {add} about the wrong json:\n{e}\n")
+                    print("Continue to close socket.")
+                finally:
+                    conn.close()
+                    print(f"Socket from {add} is closed.")
+                    return
             except ConnectionError as e:
-                print(f"Error when registering player with connection {add}:\n{e}\n")
+                print(f"Error when registering client with connection {add}:\n{e}\n")
+                print("Server will close socket.")
                 conn.close()
                 return
             except Exception as e:
-                print(f"Unhanled error when registering player with connection {add}:\n{e}\n")
+                print(f"Unknown error when registering client with connection {add}:\n{e}\n")
+                print("Server will close socket.")
                 conn.close()
                 return
     
@@ -106,20 +126,21 @@ class Server:
 
             data = json.loads(data)
 
-            if data["type"] == "request":
-                if data["contents"] == "join":
-                    if len(self.players) == self.num_player:
-                        msg = json.dumps({"type":"response", "contents":"full"})
-                        conn.sendall(bytes(msg), 'utf-8')
-                        conn.close()
-                    elif self.is_started:
-                        msg = json.dumps({"type":"response", "contents":"started"})
+            if data["type"] == REQUEST_SLOT:
+                if data["contents"] == REQUEST_SLOT:
+                    with self.players_lock:
+                        if len(self.players) == self.num_player:
+                            msg = json.dumps({"type":RESPONSE_SLOT, "contents":"full"})
+                            conn.sendall(bytes(msg), 'utf-8')
+                            conn.close()
+                    if self.is_started:
+                        msg = json.dumps({"type":RESPONSE_SLOT, "contents":"started"})
                         conn.sendall(bytes(msg, 'utf-8'))
                         conn.close()
                     else:
-                        msg = json.dumps({"type":"response", "contents":"ok"})
+                        msg = json.dumps({"type":RESPONSE_SLOT, "contents":"ok"})
                         conn.sendall(bytes(msg, 'utf-8'))
-                        thread_id = threading.Thread(target=self._register_player, args=(conn, add, len(self.threads)))
+                        thread_id = threading.Thread(target=self._register_player, args=(conn, add))
                         self.threads.append(thread_id)
                         print("Number of threads running: ", len(self.threads))
                         thread_id.start()
@@ -127,10 +148,10 @@ class Server:
                     conn.close()
                     break
                 else:
-                    conn.sendall(bytes(json.dumps({"type":"response", "contents":"error-unknown-type"}), 'utf-8'))
+                    conn.sendall(bytes(json.dumps({"type":RESPONSE_SLOT, "contents":"error-unknown-type"}), 'utf-8'))
                     conn.close()
             else:
-                conn.sendall(bytes(json.dumps({"type":"response", "contents":"error-unknown-content"}), 'utf-8'))
+                conn.sendall(bytes(json.dumps({"type":RESPONSE_SLOT, "contents":"error-unknown-content"}), 'utf-8'))
                 conn.close()
                 
 
@@ -176,6 +197,10 @@ class Server:
         for thread in self.threads:
             thread.join()
         print("Connections from players have been stopped...")
+
+def main():
+    s = Server(MAX_PLAYERS, QUESTION_SIZE, HOST, PORT)
+    s.game()
 
 if __name__ == '__main__':
     main()

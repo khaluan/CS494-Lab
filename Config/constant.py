@@ -11,7 +11,9 @@ BUFFER_SIZE = 1024
 
 # Constant string
 REQUEST_SLOT = "request-slot"
-REGISTER_NAME = "register name"
+REGISTER_NAME = "register-name"
+RESPONSE_SLOT = "response-slot"
+RESPONSE_NAME = "response-name"
 OK = "OK"
 NO = "NO"
 
