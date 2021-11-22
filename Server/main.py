@@ -294,7 +294,7 @@ class Server:
     def _question_message(self, cur_player, question_idx, question):
         return json.dumps({"questions": question, "playername": self.players[cur_player].name, "remain-question": MAX_QUESTIONS-1-question_idx})
 
-    def _send_ques_to_cur(self, conn: socket.socket, msg: str, ans: str, result: list[str], condi: threading.Condition):
+    def _send_ques_to_cur(self, conn: socket.socket, msg: str, ans: str, result: list[str]):
         # Send question
         conn.sendall(bytes(msg, 'utf-8'))
 
@@ -315,24 +315,13 @@ class Server:
             conn.sendall(bytes(json.dumps({"verdict": NO}), 'utf-8'))
             result[0] = NO
 
-        time.sleep(1)
-        with condi:
-            condi.notify_all()
 
-
-    def _send_ques_to_res(self, conn: socket.socket, msg: str, result: list[str], condi: threading.Condition):
+    def _send_ques_to_res(self, conn: socket.socket, msg: str):
         # Send question
         conn.sendall(bytes(msg, 'utf-8'))
 
         # Receive something
         data = conn.recv(BUFFER_SIZE).decode('utf-8')
-
-        with condi:
-            start = time.time()
-            while True:
-                condi.wait()
-                break
-            conn.sendall(bytes(json.dumps({"verdict": result[0]}), 'utf-8'))
             
 
     def _run_game(self):
@@ -365,15 +354,14 @@ class Server:
             ans = question.pop("answer")
             result = [""]
             msg = self._question_message(cur_player, idx, question)
-            condi = threading.Condition()
 
             for idp, player in enumerate(self.players):
                 if idp == cur_player:
                     thread_id = threading.Thread(
-                        target=self._send_ques_to_cur, args=(player.conn, msg, ans, result, condi))
+                        target=self._send_ques_to_cur, args=(player.conn, msg, ans, result))
                 else:
                     thread_id = threading.Thread(
-                        target=self._send_ques_to_res, args=(player.conn, msg, result, condi))
+                        target=self._send_ques_to_res, args=(player.conn, msg))
                 threads.append(thread_id)
                 thread_id.start()
 
@@ -381,6 +369,10 @@ class Server:
                 thread.join()
 
             threads = []
+
+            for idx, player in enumerate(self.players):
+                if idx != cur_player:
+                    player.conn.sendall(bytes(json.dumps({"verdict":result[0]}), 'utf-8'))
 
             if result[0] == NO:
                 playable_player[cur_player] = False
