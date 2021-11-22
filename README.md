@@ -14,3 +14,7 @@ The client will create a connection to the server wait for <wait_time> seconds b
 
 Adjust the different <wait_time> to test whether the program is blocked while waiting for message from other clients.
 
+## Bug: 
+- [ ] Close connection for duplicate name, client cannot rename 
+- [ ] Game does not start when enough client. Probably related to "Number of threads (connections/registering clients) is 
+running: 0"

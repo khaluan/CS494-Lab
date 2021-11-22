@@ -81,9 +81,9 @@ class Game:
         running = True
         while running:
             status = self.initialize_connection()
-            self.waiting_screen(status)
-            if status == OK: 
+            if status: 
                 self.register_name()
+                self.waiting_screen()
                 self.start_game()
                 self.display_result()
             else:
@@ -101,9 +101,10 @@ class Game:
         self.logger.warning(f"Receiving from server {data_str}")
         data = json.loads(data_str)
         game_status = data['contents']
-        if game_status == 'full':
+        self.logger.warning(f"Return status {game_status == OK}")
+        if game_status == FULL:
             return False
-        elif game_status == 'ok':
+        elif game_status == OK:
             return True
 
     """"
@@ -117,6 +118,7 @@ class Game:
         data = {"type": REGISTER_NAME, "name": player_name}
         data_str = json.dumps(data)
         self.socket.sendall(data_str.encode())
+        self.logger.warning(f"Sending name to server: {data_str}")
 
         response_str = self.socket.recv(BUFFER_SIZE)
         self.logger.warning(f'Checking name, received {response_str}')
@@ -138,6 +140,7 @@ class Game:
         is_full = True
         def activate():
             pygame.event.post(pygame.event.Event(USEREVENT))
+        self.logger.warning("Start register name")
 
         while True:
 
@@ -169,7 +172,7 @@ class Game:
                 pygame.display.update()
 
             player_name = name_input.value
-            if self.validate_name(player_name):
+            if self.validate_name(player_name) == OK:
                 self.player.name = player_name
                 break
             else:
@@ -177,13 +180,15 @@ class Game:
         self.logger.warning(f"Register complete, player name: {self.player.name}, order: {self.player.order}")
 
     def waiting_screen(self):
+        self.logger.warning("Entering waiting screen")
         font = pygame.font.SysFont(FONT, QUESTION_SIZE)
         waiting_title = font.render("Please wait for other players", False, BLACK)
         waiting = True
  
         player_img = pygame.image.load(PLAYER_PATH)
         #TODO: Setup async an async listener to listen to other player to join and display
- 
+    
+        self.screen.fill(WHITE)
         while waiting:
             center(self.screen, waiting_title, 0.1)
 
@@ -194,6 +199,7 @@ class Game:
                     self.display_remaining_players(player_img)
 
             pygame.display.update()
+
 
     """
         Gameplay screen
