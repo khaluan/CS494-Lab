@@ -34,12 +34,8 @@ class Game:
 
         self.player = Player()
         self.logger = logging.getLogger('client')
-        
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((HOST, PORT))  
-
-        self.async_listener = []      
-        
+        self.players = []
+         
         #################### DEBUG SESSION ###########################
         # self.remain_players = 3
         # self.timeout = 10
@@ -62,9 +58,15 @@ class Game:
             self.handle_question_verdict(data_dict)
         elif 'name' in data_dict.keys():
             self.handle_new_player()
+        elif 'players' in data_dict.keys():
+            self.handle_config_response(data_dict)
         else:
             # TODO: Other kinds of response here (a new player come to waiting room)
             pass
+
+    def handle_config_response(self, data_dict):
+        event = pygame.event.Event(SERVER_RESPONSE, message=data_dict)
+        pygame.event.post(event)          
     
     def handle_question_verdict(self, data_dict):
         event = pygame.event.Event(SERVER_RESPONSE, message=data_dict['verdict'])
@@ -86,13 +88,18 @@ class Game:
                 self.waiting_screen()
                 self.start_game()
                 self.display_result()
+                self.cleanup()
             else:
+                self.cleanup()
                 time.sleep(10)
                     
     """
         Connecting stage
     """
     def initialize_connection(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((HOST, PORT))  
+       
         data = {"type": REQUEST_SLOT, "contents": REQUEST_SLOT}
         data_str = json.dumps(data).encode()
         self.socket.sendall(data_str)
@@ -137,9 +144,10 @@ class Game:
         background = pygame.image.load(LOGO_PATH)
         myfont = pygame.font.SysFont('Comic Sans MS', 25)
         name_title = myfont.render("Input your name", False, BLACK)
-        is_full = True
+        is_full = False
         def activate():
             pygame.event.post(pygame.event.Event(USEREVENT))
+            
         self.logger.warning("Start register name")
 
         while True:
@@ -187,7 +195,8 @@ class Game:
  
         player_img = pygame.image.load(PLAYER_PATH)
         #TODO: Setup async an async listener to listen to other player to join and display
-    
+        self.setup_listener()
+
         self.screen.fill(WHITE)
         while waiting:
             center(self.screen, waiting_title, 0.1)
@@ -195,8 +204,14 @@ class Game:
             events = pygame.event.get()
             for event in events:
                 if event.type == SERVER_RESPONSE:
-                    self.remain_players += 1
-                    self.display_remaining_players(player_img)
+                    self.logger.warning(f"Receive message from server {event.message}")
+                    data = event.message
+                    if 'players' in data.keys(): # config response
+                        self.setup_config(data)
+                        waiting = False
+                    else: # New player added response
+                        self.remain_players += 1
+                        self.display_remaining_players(player_img)
 
             pygame.display.update()
 
@@ -204,9 +219,7 @@ class Game:
     """
         Gameplay screen
     """
-    def setup_config(self):
-        config = self.recv_config()
-
+    def setup_config(self, config):
         self.timeout = config['timeout']
         self.remain_questions = config['questions']
 
@@ -235,7 +248,7 @@ class Game:
         self.current_player_name = response['playername']
         self.remain_questions = response['remain-question']
 
-        question_json = response['question']
+        question_json = response['questions']
         question = Question(question_json['question'], question_json['choices'])
         return question
 
@@ -260,7 +273,8 @@ class Game:
         skip_turn_text = skip_turn_font.render("SKIP", False, BLACK)
         skip_turn_layout = skip_turn_text.get_rect(topleft=get_location((0.075, 0.6)))
         
-        if not self.in_turn():
+        if self.current_player_name != self.player.name:
+            self.socket.sendall(b'ack')
             self.setup_listener()
 
         waiting = True
@@ -303,7 +317,7 @@ class Game:
                         for i, layout in enumerate(choices_layout):
                             if layout.collidepoint(pos):
                                 self.logger.warning(f"Accept answer {chr(0x41 + i)}")
-                                verdict = self.send_answer(chr(0x41 + i), question)
+                                verdict = self.send_answer(question, question.choices[i])
 
                                 waiting = False
                                 break
@@ -320,23 +334,26 @@ class Game:
 
             pygame.display.update()
         
+        self.socket.sendall(b'ack')
         self.handle_verdict(verdict)
         self.display_remaining_players(player_img)
         pygame.display.update()
         time.sleep(1.5)
 
     def send_answer(self, question, answer):
-        data = {"answer": answer, "question": question}
+        data = {"answer": answer, "question": {"question": question.question, "choices": question.choices}}
         data_str = json.dumps(data)
         self.logger.warning(f"Sending answer: {data_str}")
-        self.socket.sendall(data_str)
-
+        self.socket.sendall(data_str.encode())
+        
         verdict_str = self.socket.recv(BUFFER_SIZE)
+        self.logger.warning(f'Receive verdict: {verdict_str}')
         verdict = json.loads(verdict_str)
         return verdict['verdict']
 
     def handle_verdict(self, verdict):
         font = pygame.font.SysFont(FONT, 25)
+        self.logger.warning(f"Handling verdict of {verdict}")
         verdict_text = ''
         if verdict == OK:
             verdict_text = font.render(f'Player {self.current_player_name} correct', False, BLACK)
@@ -353,7 +370,7 @@ class Game:
             self.screen.blit(image, (left + i * 100, 500 * 0.7))
 
     def start_game(self):
-        while self.remain_questions:
+        while self.remain_questions > 1:
             question = self.get_question()
             self.display_question(question)
 
@@ -368,17 +385,26 @@ class Game:
         winner = json.loads(winner_str)
         winner_player = winner['winner']
 
+        self.screen.fill(WHITE)
+
         firework_img = pygame.image.load(FIREWORK_PATH)
         player_img = pygame.image.load(PLAYER_PATH)
 
         font = pygame.font.SysFont(FONT, CHOICE_SIZE)
         winner_name = font.render(winner_player, False, BLACK)
 
-        while True:
+        displaying = True
+        while displaying:
             
             self.screen.blit(firework_img, get_location((0, 0)))
             self.screen.blit(player_img, get_location((0.4, 0.6)))
             self.screen.blit(winner_name, get_location((0.43, 0.5)))
+            events = pygame.event.get()
+            for event in events:
+                if event.type == KEYDOWN and event.key == K_RETURN:
+                    displaying = False
+                    break
+
             pygame.display.update()
 
     """
@@ -387,17 +413,13 @@ class Game:
     def in_turn(self):
         return self.player.name == self.current_player_name
 
-    def notify_exit(self):
-        pass
+    def cleanup(self):
+        self.socket.close() 
 
     def __del__(self):
         pygame.display.quit()
         pygame.quit()
- 
-        self.notify_exit() 
- 
-        for thread in self.async_listener:
-            thread.join()
+  
         self.socket.close()
 
         exit(0)

@@ -16,5 +16,6 @@ Adjust the different <wait_time> to test whether the program is blocked while wa
 
 ## Bug: 
 - [ ] Close connection for duplicate name, client cannot rename 
-- [ ] Game does not start when enough client. Probably related to "Number of threads (connections/registering clients) is 
-running: 0"
+- [ ] Game does not start when enough client. 
+- [ ] Send random message for client not in turn 
+- [ ] 

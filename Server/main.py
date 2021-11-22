@@ -45,11 +45,6 @@ class Server:
         self.threads: list[threading.Thread] = []
         self.threads_lock: threading.Lock = threading.Lock()
 
-        # Initialize connection variable
-        # Each thread will control one connection from one player
-        self.to_be_cancelled_threads: list[threading.Thread] = []
-        self.to_be_cancelled_threads_lock: threading.Lock = threading.Lock()
-
         # Create socket and start listening
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((host, port))
@@ -280,7 +275,7 @@ class Server:
         conn.sendall(bytes(msg, 'utf-8'))
         data = conn.recv(BUFFER_SIZE)
 
-    def _get_current_player(self, playable_player: list[bool], cur: int = None):
+    def _get_current_player(self, playable_player, cur: int = None):
         if cur is None:
             return 0
         else:
@@ -294,7 +289,7 @@ class Server:
     def _question_message(self, cur_player, question_idx, question):
         return json.dumps({"questions": question, "playername": self.players[cur_player].name, "remain-question": MAX_QUESTIONS-1-question_idx})
 
-    def _send_ques_to_cur(self, conn: socket.socket, msg: str, ans: str, result: list[str]):
+    def _send_ques_to_cur(self, conn: socket.socket, msg: str, ans: str, result):
         # Send question
         conn.sendall(bytes(msg, 'utf-8'))
 
@@ -315,6 +310,7 @@ class Server:
             conn.sendall(bytes(json.dumps({"verdict": NO}), 'utf-8'))
             result[0] = NO
 
+        conn.recv(BUFFER_SIZE)
 
     def _send_ques_to_res(self, conn: socket.socket, msg: str):
         # Send question
@@ -350,6 +346,13 @@ class Server:
         cur_player = self._get_current_player(playable_player)
 
         for idx, question_ in enumerate(self.questions):
+            
+            if idx == len(self.questions) - 1:
+                for idp, player in enumerate(self.players):
+                    player.conn.sendall(bytes(json.dumps({"winner":self.players[cur_player].name}), 'utf-8'))  
+                time.sleep(1)    
+                break      
+
             question = question_.copy()
             ans = question.pop("answer")
             result = [""]
@@ -373,6 +376,7 @@ class Server:
             for idx, player in enumerate(self.players):
                 if idx != cur_player:
                     player.conn.sendall(bytes(json.dumps({"verdict":result[0]}), 'utf-8'))
+                    player.conn.recv(BUFFER_SIZE)
 
             if result[0] == NO:
                 playable_player[cur_player] = False
@@ -381,10 +385,7 @@ class Server:
             if result[0] == SKIP:
                 cur_player = self._get_current_player(playable_player, cur_player)
 
-            if idx == len(self.questions) - 1:
-                for idp, player in enumerate(self.players):
-                    player.conn.sendall(bytes(json.dumps({"winner":self.players[cur_player].name}), 'utf-8'))            
-
+            
     def run(self):
         """Start to receive incomming connection and to load question into memory.
         Each job will be allocated to a thread
@@ -422,7 +423,7 @@ class Server:
                 "FATAL: Database takes too much time to load questions, server will be forced to shutdown.")
 
         # Wait for players' connections
-        connecting_state = wait_connecting.wait(120)
+        connecting_state = wait_connecting.wait()
         if not connecting_state:
             print(
                 "WARN: Waiting players for too long, server will closed all connections and start new game.")
@@ -458,10 +459,17 @@ class Server:
             player.conn.close()
         print("Connections from players have been stopped...")
 
+        # Clean up
+        self.players: list[Player] = []
+        self.questions: list[dict] = []
+        self.threads: list[threading.Thread] = []
+        self.is_started = False
+
 
 def main():
     s = Server(MAX_PLAYERS, QUESTION_SIZE, HOST, PORT)
-    s.run()
+    while True:
+        s.run()
 
 
 if __name__ == '__main__':
