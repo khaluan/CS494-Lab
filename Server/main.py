@@ -15,7 +15,7 @@ from Config.config import *
 from Config.constant import *
 
 class Player:
-    def __init__(self, conn, add, name='', order=-1):
+    def __init__(self, conn: socket.socket, add, name='', order=-1):
         self.conn = conn
         self.add = add
         self.name = name
@@ -129,7 +129,7 @@ class Server:
                     print(
                         f"Number of threads (connections/registering clients) is running: {len(self.threads)}")
 
-    def _handle_registering_accepted_connection(self, conn: socket.socket, add, condition_obj: threading.Condition):
+    def _handle_registering_accepted_connection(self, conn: socket.socket, add, event: threading.Event, condition_obj: threading.Condition):
         print(f"Start asking for player's name from {add}.")
         while True:
             data = conn.recv(1024).decode('utf-8')
@@ -179,6 +179,8 @@ class Server:
                         else:
                             print(f"Response for {add} is sent.")
                             if not dup_name:
+                                if len(self.players) == self.num_player:
+                                    event.set()
                                 with condition_obj:
                                     condition_obj.notify()
                                 return
@@ -224,7 +226,6 @@ class Server:
                             with self.threads_lock:
                                 if len(self.players) == self.num_player:
                                     is_full = True
-                                    event.set()
                                 if len(self.players) + len(self.threads) == self.num_player:
                                     is_full = True
                         if is_full:
@@ -245,7 +246,7 @@ class Server:
                         if succeeded:
                             # Establish new thread for registering player
                             thread_id = threading.Thread(
-                                target=self._handle_registering_accepted_connection, args=(conn, add, condition_obj))
+                                target=self._handle_registering_accepted_connection, args=(conn, add, event, condition_obj))
                             thread_id.name = thread_id.name + f" for {add}"
                             print(f"Thread {thread_id.name} is created.")
                             with self.threads_lock:
@@ -387,9 +388,10 @@ class Server:
 
             if result[0] == SKIP:
                 cur_player = self._get_current_player(playable_player, cur_player)
-                
 
-            
+            if idx == len(self.questions) - 1:
+                for idp, player in enumerate(self.players):
+                    player.conn.sendall(bytes(json.dumps({"winner":self.players[cur_player].name}), 'utf-8'))            
 
     def run(self):
         """Start to receive incomming connection and to load question into memory.
@@ -460,8 +462,8 @@ class Server:
 
         # Stop connections from players
         print("Stopping connections from players...")
-        # for thread in self.threads:
-        #     thread.join()
+        for player in self.players:
+            player.conn.close()
         print("Connections from players have been stopped...")
 
 
