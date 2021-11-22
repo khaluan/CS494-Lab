@@ -14,8 +14,9 @@ The client will create a connection to the server wait for <wait_time> seconds b
 
 Adjust the different <wait_time> to test whether the program is blocked while waiting for message from other clients.
 
+## Documentation
+Report link: https://docs.google.com/document/d/1HBP7p4Ep6lMnZ4VQKi7O1tZ5NkoQ4s5MxDcAX5PGXLQ/edit?usp=sharing
 ## Bug: 
-- [ ] Close connection for duplicate name, client cannot rename 
-- [ ] Game does not start when enough client. 
-- [ ] Send random message for client not in turn 
-- [ ] 
+- [x] Close connection for duplicate name, client cannot rename 
+- [x] Game does not start when enough client. 
+- [x] Send random message for client not in turn 
