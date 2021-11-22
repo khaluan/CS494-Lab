@@ -33,7 +33,7 @@ class Server:
         self.players_lock: threading.Lock = threading.Lock()
 
         # Prepare list of questions
-        self.questions: list[Player] = []
+        self.questions: list[dict] = []
         self.questions_lock: threading.Lock = threading.Lock()
 
         # Innitialize host, port, and list of threads for connections of the game
@@ -169,7 +169,7 @@ class Server:
                             msg = json.dumps(
                                 {"type": RESPONSE_NAME, "status": NO})
                         succeeded = self._send_message(
-                            conn, msg, f"the availability of the name {request_name}")
+                            conn, msg, f"the availability of the name \"{request_name}\"")
                         if not succeeded:
                             self.players.remove(player)
                             self._close_connection(conn, add)
@@ -178,9 +178,10 @@ class Server:
                             return
                         else:
                             print(f"Response for {add} is sent.")
-                            with condition_obj:
-                                condition_obj.notify()
-                            return
+                            if not dup_name:
+                                with condition_obj:
+                                    condition_obj.notify()
+                                return
                 else:
                     self._handle_unrecognized_message(conn, add)
                     with condition_obj:
@@ -276,7 +277,7 @@ class Server:
 
     def _send_config_recv_response(self, msg: str, conn: socket.socket):
         conn.sendall(bytes(msg, 'utf-8'))
-        conn.recv(BUFFER_SIZE)
+        data = conn.recv(BUFFER_SIZE)
 
     def _get_current_player(self, playable_player: list[bool], cur: int = None):
         if cur is None:
@@ -289,7 +290,18 @@ class Server:
     def _question_message(self, cur_player, question_idx, question):
         return json.dumps({"questions": question, "playername": self.players[cur_player].name, "remain-question": MAX_QUESTIONS-1-question_idx})
 
-    def run_game(self):
+    def _send_ques_to_cur(self, conn: socket.socket, msg: str, ans: str):
+        conn.sendall(bytes(msg, 'utf-8'))
+        data = conn.recv(BUFFER_SIZE).decode('utf-8')
+        data = json.loads(data)
+
+        
+
+
+    def _send_ques_to_res(self, conn: socket.socket, msg: str):
+        pass
+
+    def _run_game(self):
         # Send config
         list_dict_players = []
         threads = []
@@ -301,7 +313,7 @@ class Server:
 
         for player in self.players:
             thread_id = threading.Thread(
-                target=self._send_config, args=(msg, player.conn))
+                target=self._send_config_recv_response, args=(msg, player.conn))
             threads.append(thread_id)
             thread_id.start()
 
@@ -314,16 +326,21 @@ class Server:
         threads = []
         cur_player = self._get_current_player(playable_player)
 
-        for idx, question in enumerate(self.questions):
+        for idx, question_ in enumerate(self.questions):
+            question = question_.copy()
+            ans = question.pop("answer")
             msg = self._question_message(cur_player, idx, question)
             for idp, player in enumerate(self.players):
                 if idp == cur_player:
                     thread_id = threading.Thread(
-                        target=self._send_config, args=(msg, player.conn))
+                        target=self._send_ques_to_cur, args=(player.conn, msg, ans))
                 else:
-                    pass
+                    thread_id = threading.Thread(
+                        target=self._send_ques_to_res, args=(player.conn, msg))
                 threads.append(thread_id)
                 thread_id.start()
+
+            
 
     def run(self):
         """Start to receive incomming connection and to load question into memory.
@@ -356,7 +373,7 @@ class Server:
         ############################################################
 
         # Wait for loading first as it tends to be faster
-        loading_state = wait_loading.wait(5)
+        loading_state = wait_loading.wait(60)
         if not loading_state:
             print(
                 "FATAL: Database takes too much time to load questions, server will be forced to shutdown.")
@@ -387,6 +404,7 @@ class Server:
         ####################
         ## Begin the game ##
         ####################
+        self._run_game()
 
         # Stop accepting new connection
         self._stop_new_connection(new_connection_thread)
