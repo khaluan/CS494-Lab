@@ -77,21 +77,71 @@ class Game:
         thread.start()
 
     """
+        Menu for the game:
+    """
+
+    def menu(self):
+        self.screen.fill(WHITE)
+ 
+        logo = pygame.image.load(LOGO_PATH)
+        center(self.screen, logo, 0.4)
+
+        font = pygame.font.SysFont(FONT, OPTION_SIZE)
+        
+        start_option = font.render('START', True, BLACK)
+        start_layout = start_option.get_rect(topleft=(WINDOW_SIZE[0] / 6, WINDOW_SIZE[1] * 0.85))
+
+        exit_option = font.render("EXIT", True, BLACK)
+        exit_layout = start_option.get_rect(topleft=(WINDOW_SIZE[0] * (1/6 + 1/2), WINDOW_SIZE[1] * 0.85))
+
+        self.screen.blit(start_option, start_layout)
+        self.screen.blit(exit_option, exit_layout)
+
+        while True:
+            events = pygame.event.get()
+            for event in events:
+                if event.type ==  MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+                    if start_layout.collidepoint(pos):
+                        return 1
+                    elif exit_layout.collidepoint(pos):
+                        return 0
+            pygame.display.update()
+
+    """
         Main loop of the game
     """
+    # def run(self):
+    #     running = True
+    #     while running:
+    #         status = self.initialize_connection()
+    #         if status: 
+                
+    #             self.register_name()
+    #             self.waiting_screen()
+    #             self.start_game()
+    #             self.display_result()
+    #             self.cleanup()
+    #         else:
+    #             self.cleanup()
+    #             time.sleep(10)
+
     def run(self):
-        running = True
-        while running:
-            status = self.initialize_connection()
-            if status: 
-                self.register_name()
-                self.waiting_screen()
-                self.start_game()
-                self.display_result()
-                self.cleanup()
-            else:
-                self.cleanup()
-                time.sleep(10)
+        while True:
+            opt = self.menu()
+            if opt == 0:
+                return
+            elif opt == 1:
+                status = self.initialize_connection()
+                if status: 
+                    self.register_name()
+                    self.waiting_screen()
+                    self.start_game()
+                    self.display_result()
+                    self.cleanup()
+                else:
+                    self.cleanup()
+                    time.sleep(10)
                     
     """
         Connecting stage
@@ -143,7 +193,7 @@ class Game:
     def register_name(self):
         background = pygame.image.load(LOGO_PATH)
         myfont = pygame.font.SysFont('Comic Sans MS', 25)
-        name_title = myfont.render("Input your name", False, BLACK)
+        name_title = myfont.render("Input your name", True, BLACK)
         is_full = False
         def activate():
             pygame.event.post(pygame.event.Event(USEREVENT))
@@ -173,7 +223,7 @@ class Game:
                 center(self.screen, name_title, 0.82)
                 center(self.screen, name_input.surface, 0.89)
                 if is_full:
-                    announcement = myfont.render('Sorry the game is full', False, BLACK) 
+                    announcement = myfont.render('Sorry the game is full', True, BLACK) 
                     center(self.screen, announcement, 0.95)
                     timer = threading.Timer(1.5, activate)
                     timer.start()
@@ -190,7 +240,7 @@ class Game:
     def waiting_screen(self):
         self.logger.warning("Entering waiting screen")
         font = pygame.font.SysFont(FONT, QUESTION_SIZE)
-        waiting_title = font.render("Please wait for other players", False, BLACK)
+        waiting_title = font.render("Waiting for other players", True, BLACK)
         waiting = True
  
         player_img = pygame.image.load(PLAYER_PATH)
@@ -256,11 +306,11 @@ class Game:
         player_img = pygame.image.load(PLAYER_PATH)
 
         question_font = pygame.font.SysFont(FONT, QUESTION_SIZE)
-        question_title = question_font.render(question.question, False, WHITE)
+        question_title = question_font.render(question.question, True, WHITE)
         question_layout = question_title.get_rect(center=(WINDOW_SIZE[0] / 2, 100))
 
         choice_font = pygame.font.SysFont(FONT, CHOICE_SIZE)
-        choices_text = [choice_font.render(choice, False, WHITE) for choice in question.choices]        
+        choices_text = [choice_font.render(choice, True, WHITE) for choice in question.choices]        
         choice_location = [(OFFSET, 0.3), (0.5 + OFFSET, 0.3), (OFFSET, 0.4), (0.5 + OFFSET, 0.4)]
         choices_layout = [layout.get_rect(topleft=get_location(pos, MARGIN), width=WINDOW_SIZE[0] * 0.4, height=layout.get_rect().size[0])
                         for layout, pos in zip(choices_text, choice_location)]
@@ -270,7 +320,7 @@ class Game:
         timer_font = pygame.font.SysFont(FONT, TIMER_SIZE)
 
         skip_turn_font = pygame.font.SysFont(FONT, CHOICE_SIZE)
-        skip_turn_text = skip_turn_font.render("SKIP", False, BLACK)
+        skip_turn_text = skip_turn_font.render("SKIP", True, BLACK)
         skip_turn_layout = skip_turn_text.get_rect(topleft=get_location((0.075, 0.6)))
         
         if self.current_player_name != self.player.name:
@@ -292,10 +342,12 @@ class Game:
                 pygame.draw.rect(self.screen, BLUE, layout)
                 self.screen.blit(text, get_location(pos))
             
-            timer_layout = timer_font.render(str(remain_time), False, BLACK)
+            timer_layout = timer_font.render(str(remain_time), True, BLACK)
             self.screen.blit(timer_layout, get_location((0.8, 0.6)))
             self.display_remaining_players(player_img)
-            self.screen.blit(skip_turn_text, get_location((0.075, 0.6)))        
+
+            if self.current_player_name == self.player.name and self.player.skip_turn:
+                self.screen.blit(skip_turn_text, get_location((0.075, 0.6)))        
             
             for event in events:
                 if event.type == KEYDOWN and event.key == K_RETURN:
@@ -356,11 +408,11 @@ class Game:
         self.logger.warning(f"Handling verdict of {verdict}")
         verdict_text = ''
         if verdict == OK:
-            verdict_text = font.render(f'Player {self.current_player_name} correct', False, BLACK)
+            verdict_text = font.render(f'Player {self.current_player_name} correct', True, BLACK)
         elif verdict == NO:
-            verdict_text = font.render(f'Player {self.current_player_name} eliminated', False, BLACK)
+            verdict_text = font.render(f'Player {self.current_player_name} eliminated', True, BLACK)
         elif verdict == SKIP:
-            verdict_text = font.render(f'Player {self.current_player_name} skip turn', False, BLACK)
+            verdict_text = font.render(f'Player {self.current_player_name} skip turn', True, BLACK)
             self.remain_players -= 1
         center(self.screen, verdict_text, 0.1)
 
@@ -391,7 +443,7 @@ class Game:
         player_img = pygame.image.load(PLAYER_PATH)
 
         font = pygame.font.SysFont(FONT, CHOICE_SIZE)
-        winner_name = font.render(winner_player, False, BLACK)
+        winner_name = font.render(winner_player, True, BLACK)
 
         displaying = True
         while displaying:
@@ -423,3 +475,4 @@ class Game:
         self.socket.close()
 
         exit(0)
+
