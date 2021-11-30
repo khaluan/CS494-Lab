@@ -136,8 +136,8 @@ class Game:
                 if status: 
                     self.register_name()
                     self.waiting_screen()
-                    self.start_game()
-                    self.display_result()
+                    winner = self.start_game()
+                    self.display_result(winner)
                     self.cleanup()
                 else:
                     self.cleanup()
@@ -195,6 +195,7 @@ class Game:
         myfont = pygame.font.SysFont('Comic Sans MS', 25)
         name_title = myfont.render("Input your name", True, BLACK)
         is_full = False
+        duplicate_name = False
         def activate():
             pygame.event.post(pygame.event.Event(USEREVENT))
             
@@ -219,7 +220,8 @@ class Game:
                         is_full = False
 
                 name_input.update(events)
-                self.screen.blit(background, (0, 0))
+                # self.screen.blit(background, (0, 0))
+                center(self.screen, background, 0.4)
                 center(self.screen, name_title, 0.82)
                 center(self.screen, name_input.surface, 0.89)
                 if is_full:
@@ -227,19 +229,28 @@ class Game:
                     center(self.screen, announcement, 0.95)
                     timer = threading.Timer(1.5, activate)
                     timer.start()
+
+                if duplicate_name:
+                    announcement = myfont.render('Please choose another name', True, BLACK) 
+                    center(self.screen, announcement, 0.95)
+                    timer = threading.Timer(1.5, activate)
+                    timer.start()
                 pygame.display.update()
 
             player_name = name_input.value
-            if self.validate_name(player_name) == OK:
+            status = self.validate_name(player_name)
+            if status == OK:
                 self.player.name = player_name
                 break
+            elif status == NO:
+                duplicate_name = True
             else:
                 is_full = True
         self.logger.warning(f"Register complete, player name: {self.player.name}, order: {self.player.order}")
 
     def waiting_screen(self):
         self.logger.warning("Entering waiting screen")
-        font = pygame.font.SysFont(FONT, QUESTION_SIZE)
+        font = pygame.font.SysFont(FONT, TIMER_SIZE)
         waiting_title = font.render("Waiting for other players", True, BLACK)
         waiting = True
  
@@ -291,32 +302,47 @@ class Game:
 
     def get_question(self):
         # question = Question("Just a short question: 1 + 1 = ?" , ["A. 1", "B. 2", "C. 3", "D. 4"])
-        response_str = self.socket.recv(BUFFER_SIZE)
-        self.logger.warning(f"Get question: {response_str}")
-        response = json.loads(response_str)
+        try:
+            response_str = self.socket.recv(BUFFER_SIZE)
+            self.logger.warning(f"Get question: {response_str}")
+            response = json.loads(response_str)
 
-        self.current_player_name = response['playername']
-        self.remain_questions = response['remain-question']
+            self.current_player_name = response['playername']
+            self.remain_questions = response['remain-question']
 
-        question_json = response['questions']
-        question = Question(question_json['question'], question_json['choices'])
-        return question
+            question_json = response['questions']
+            question = Question(question_json['question'], question_json['choices'])
+            return question
+        except Exception:
+            self.logger.warning(f"Recv final result: {response_str}")
+            winner = json.loads(response_str)
+            winner_player = winner['winner']
+            return winner_player
 
     def display_question(self, question):
         player_img = pygame.image.load(PLAYER_PATH)
 
+
         question_font = pygame.font.SysFont(FONT, QUESTION_SIZE)
         question_title = question_font.render(question.question, True, WHITE)
-        question_layout = question_title.get_rect(center=(WINDOW_SIZE[0] / 2, 100))
+        question_layout = question_title.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] * 0.2))
+
+        if self.in_turn():
+            turn_text = "This is your turn"
+        else:
+            turn_text = f"This is {self.current_player_name}'s turn"
+        turn_text_widget = question_font.render(turn_text, True, BLACK)
+        turn_text_layout = turn_text_widget.get_rect(center=(WINDOW_SIZE[0] / 2, WINDOW_SIZE[1] * 0.05))
+        
 
         choice_font = pygame.font.SysFont(FONT, CHOICE_SIZE)
         choices_text = [choice_font.render(choice, True, WHITE) for choice in question.choices]        
         choice_location = [(OFFSET, 0.3), (0.5 + OFFSET, 0.3), (OFFSET, 0.4), (0.5 + OFFSET, 0.4)]
-        choices_layout = [layout.get_rect(topleft=get_location(pos, MARGIN), width=WINDOW_SIZE[0] * 0.4, height=layout.get_rect().size[0])
+        choices_layout = [layout.get_rect(topleft=get_location(pos, MARGIN), width=WINDOW_SIZE[0] * 0.4 + 2 * MARGIN, height=layout.get_rect().size[1] + 2 * MARGIN)
                         for layout, pos in zip(choices_text, choice_location)]
         
         pygame.time.set_timer(pygame.USEREVENT, 1000)
-        remain_time = self.timeout + 1
+        remain_time = self.timeout
         timer_font = pygame.font.SysFont(FONT, TIMER_SIZE)
 
         skip_turn_font = pygame.font.SysFont(FONT, CHOICE_SIZE)
@@ -337,6 +363,8 @@ class Game:
 
             pygame.draw.rect(self.screen, BLUE, question_layout)
             self.screen.blit(question_title, question_layout)
+
+            self.screen.blit(turn_text_widget, turn_text_layout)
 
             for text, layout, pos in zip(choices_text, choices_layout, choice_location):
                 pygame.draw.rect(self.screen, BLUE, layout)
@@ -361,7 +389,7 @@ class Game:
                     pos = pygame.mouse.get_pos()
                     if skip_turn_layout.collidepoint(pos) and self.player.skip_turn:
                         self.logger.warning("Handling skip")
-                        verdict = self.send_answer(question, "Skip")
+                        verdict = self.send_answer(question, SKIP)
 
                         self.player.skip_turn = 0
                         waiting = False
@@ -376,9 +404,11 @@ class Game:
 
                 elif event.type == USEREVENT:
                     # Clock ticking after 1 second
-                    remain_time -= 1
                     if remain_time == 0:
-                        waiting = False
+                        if self.in_turn():
+                            verdict = self.send_answer(question, '')
+                            waiting = False 
+                    remain_time -= 1
 
                 elif event.type == SERVER_RESPONSE:
                     verdict = event.message
@@ -388,7 +418,7 @@ class Game:
         
         self.socket.sendall(b'ack')
         self.handle_verdict(verdict)
-        self.display_remaining_players(player_img)
+        # self.display_remaining_players(player_img)
         pygame.display.update()
         time.sleep(1.5)
 
@@ -411,31 +441,33 @@ class Game:
             verdict_text = font.render(f'Player {self.current_player_name} correct', True, BLACK)
         elif verdict == NO:
             verdict_text = font.render(f'Player {self.current_player_name} eliminated', True, BLACK)
-        elif verdict == SKIP:
-            verdict_text = font.render(f'Player {self.current_player_name} skip turn', True, BLACK)
             self.remain_players -= 1
+        elif verdict == SKIP:
+            verdict_text = font.render(f'Player {self.current_player_name} skip turn', True, BLACK)   
         center(self.screen, verdict_text, 0.1)
 
     def display_remaining_players(self, image):
+        font = pygame.font.SysFont(FONT, 20)
         left = (WINDOW_SIZE[0] - self.remain_players * 100) // 2
         for i in range(self.remain_players):
-            self.screen.blit(image, (left + i * 100, 500 * 0.7))
+            self.screen.blit(image, (left + i * 100, WINDOW_SIZE[1] * 0.7))
+            name_text = font.render(self.players[i].name, True, BLACK)
+            self.screen.blit(name_text, (left + i * 100 + 40, WINDOW_SIZE[1] * 0.9))
 
     def start_game(self):
-        while self.remain_questions > 1:
+        while self.remain_questions > 0:
             question = self.get_question()
-            self.display_question(question)
+            if isinstance(question, Question):
+                self.display_question(question)
+            else:
+                return question
 
     """"
         This is for result screen
     """
 
-    def display_result(self):
-        winner_str = self.socket.recv(BUFFER_SIZE)
-        self.logger.warning(f"Recv final result: {winner_str}")
-
-        winner = json.loads(winner_str)
-        winner_player = winner['winner']
+    def display_result(self, winner_player):
+        
 
         self.screen.fill(WHITE)
 
@@ -471,8 +503,5 @@ class Game:
     def __del__(self):
         pygame.display.quit()
         pygame.quit()
-  
         self.socket.close()
-
-        exit(0)
 

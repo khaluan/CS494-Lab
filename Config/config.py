@@ -3,17 +3,17 @@ HOST = '127.0.0.1'
 PORT = 1337      
 
 # Game config
-MAX_PLAYERS = 2
-MAX_QUESTIONS = 4
+MAX_PLAYERS = 3
+MAX_QUESTIONS = 5
 TIMEOUT = 30
 
 ###############################
 # This section is for styling #
 ###############################
-WINDOW_SIZE = (500, 500)
+WINDOW_SIZE = (600, 600)
 
 FONT = "freesansbold.ttf"
-CHOICE_SIZE = 35
+CHOICE_SIZE = 30
 QUESTION_SIZE = 30
 OPTION_SIZE = 40
 TIMER_SIZE = 50
