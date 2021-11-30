@@ -2,134 +2,74 @@
     "data": "questions",
     "questions": [
         {
-            "question": "1+1=?",
+            "question": "The capital of Viet Nam is:",
             "choices": [
-                "A. 1",
+                "A. Ha Noi",
+                "B. Ho Chi Minh",
+                "C. Da Nang",
+                "D. Can Tho"
+            ],
+            "answer": "A. Ha Noi"
+        },
+        {
+            "question": "Which timezone is Viet Nam in?",
+            "choices": [
+                "A. GMT +7",
+                "B. GMT +7.5",
+                "C. GMT +8",
+                "D. GMT +7.25"
+            ],
+            "answer": "A. GMT +7"
+        },
+        {
+            "question": "How many legs does a chicken have",
+            "choices": [
+                "A. 0",
                 "B. 2",
-                "C. 3",
-                "D. 4"
+                "C. 0.5",
+                "D. 3.1415"
             ],
             "answer": "B. 2"
         },
         {
-            "question": "1+1=?",
+            "question": "Which year is Nobita in?",
             "choices": [
                 "A. 1",
                 "B. 2",
                 "C. 3",
-                "D. 4"
+                "D. 5"
             ],
-            "answer": "B. 2"
+            "answer": "D. 5"
         },
         {
-            "question": "1+1=?",
+            "question": "Which year is Conan in?",
             "choices": [
                 "A. 1",
                 "B. 2",
                 "C. 3",
                 "D. 4"
             ],
-            "answer": "B. 2"
+            "answer": "A. 1"
         },
         {
-            "question": "1+1=?",
+            "question": "Who is the main character in \"Sherlock Holmes\"",
             "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
+                "A. Sherlock Holmes",
+                "B. Arthur Conan Doyle",
+                "C. Dr. Watson",
+                "D. Mrs. Hudson"
             ],
-            "answer": "B. 2"
+            "answer": "A. Sherlock Holmes"
         },
         {
-            "question": "1+1=?",
+            "question": "Who is the author of \"The Potato Eaters\"",
             "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
+                "A. Vincent Willem van Gogh",
+                "B. Leonardo da Vinci",
+                "C. Beethoven Mozart",
+                "D. Gaorangers"
             ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
-        },
-        {
-            "question": "1+1=?",
-            "choices": [
-                "A. 1",
-                "B. 2",
-                "C. 3",
-                "D. 4"
-            ],
-            "answer": "B. 2"
+            "answer": "A. Vincent Willem van Gogh"
         }
     ]
 }

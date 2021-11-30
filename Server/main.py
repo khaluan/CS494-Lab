@@ -1,5 +1,3 @@
-from Config.constant import *
-from Config.config import *
 import socket
 import threading
 import json
@@ -13,6 +11,8 @@ currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 
+from Config.constant import *
+from Config.config import *
 
 class Player:
     def __init__(self, conn: socket.socket, add, name='', order=-1):
