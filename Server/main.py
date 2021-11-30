@@ -1,3 +1,5 @@
+from Config.constant import *
+from Config.config import *
 import socket
 import threading
 import json
@@ -11,8 +13,6 @@ currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 
-from Config.config import *
-from Config.constant import *
 
 class Player:
     def __init__(self, conn: socket.socket, add, name='', order=-1):
@@ -318,7 +318,6 @@ class Server:
 
         # Receive something
         data = conn.recv(BUFFER_SIZE).decode('utf-8')
-            
 
     def _run_game(self):
         # Send config
@@ -346,12 +345,18 @@ class Server:
         cur_player = self._get_current_player(playable_player)
 
         for idx, question_ in enumerate(self.questions):
-            
+
             if idx == len(self.questions) - 1:
                 for idp, player in enumerate(self.players):
-                    player.conn.sendall(bytes(json.dumps({"winner":self.players[cur_player].name}), 'utf-8'))  
-                time.sleep(1)    
-                break      
+                    player.conn.sendall(
+                        bytes(json.dumps({"winner": self.players[cur_player].name}), 'utf-8'))
+                break
+
+            if len([x for x in playable_player if x]) == 1:
+                for idp, player in enumerate(self.players):
+                    player.conn.sendall(
+                        bytes(json.dumps({"winner": self.players[cur_player].name}), 'utf-8'))
+                break
 
             question = question_.copy()
             ans = question.pop("answer")
@@ -375,17 +380,19 @@ class Server:
 
             for idx, player in enumerate(self.players):
                 if idx != cur_player:
-                    player.conn.sendall(bytes(json.dumps({"verdict":result[0]}), 'utf-8'))
+                    player.conn.sendall(
+                        bytes(json.dumps({"verdict": result[0]}), 'utf-8'))
                     player.conn.recv(BUFFER_SIZE)
 
             if result[0] == NO:
                 playable_player[cur_player] = False
-                cur_player = self._get_current_player(playable_player, cur_player)
+                cur_player = self._get_current_player(
+                    playable_player, cur_player)
 
             if result[0] == SKIP:
-                cur_player = self._get_current_player(playable_player, cur_player)
+                cur_player = self._get_current_player(
+                    playable_player, cur_player)
 
-            
     def run(self):
         """Start to receive incomming connection and to load question into memory.
         Each job will be allocated to a thread
