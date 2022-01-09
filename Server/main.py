@@ -1,7 +1,6 @@
 import socket
 import threading
 import json
-import logging
 import time
 import random
 
@@ -20,7 +19,6 @@ class Player:
         self.add = add
         self.name = name
         self.order = order
-
 
 class Server:
     def __init__(self, num_player: int, num_questions: int, host: str, port: str) -> None:
@@ -63,12 +61,12 @@ class Server:
         thread.join()
         print("Incomming connections have been stopped.")
 
-    def _send_message(self, conn: socket.socket, msg: str, type_resp: str) -> bool:
+    def _send_message(self, conn: socket.socket, add, msg: str, type_resp: str) -> bool:
         try:
             conn.sendall(bytes(msg, 'utf-8'))
         except ConnectionError as ce:
             print(
-                f"Connection error when trying to respone to {add} about {type_resp}:\n{e}\n")
+                f"Connection error when trying to respone to {add} about {type_resp}:\n{ce}\n")
             return False
         except Exception as e:
             print(
@@ -164,7 +162,7 @@ class Server:
                             msg = json.dumps(
                                 {"type": RESPONSE_NAME, "status": NO})
                         succeeded = self._send_message(
-                            conn, msg, f"the availability of the name \"{request_name}\"")
+                            conn, add, msg, f"the availability of the name \"{request_name}\"")
                         if not succeeded:
                             self.players.remove(player)
                             self._close_connection(conn, add)
@@ -209,7 +207,7 @@ class Server:
                             msg = json.dumps(
                                 {"type": RESPONSE_SLOT, "contents": "started"})
                             succeeded = self._send_message(
-                                conn, msg, "game is started.")
+                                conn, add, msg, "game is started.")
                             # Close connection regardless of the state of the sent message.
                             # Because the game is already started.
                             self._close_connection(conn, add)
@@ -227,7 +225,7 @@ class Server:
                             msg = json.dumps(
                                 {"type": RESPONSE_SLOT, "contents": "full"})
                             succeeded = self._send_message(
-                                conn, msg, "game is full.")
+                                conn, add, msg, "game is full.")
                             # Close connection regardless of the state of the sent message.
                             # Because the slot is full anyway.
                             self._close_connection(conn, add)
@@ -237,7 +235,7 @@ class Server:
                         msg = json.dumps(
                             {"type": RESPONSE_SLOT, "contents": "ok"})
                         succeeded = self._send_message(
-                            conn, msg, "slot request acceptance.")
+                            conn, add, msg, "slot request acceptance.")
                         if succeeded:
                             # Establish new thread for registering player
                             thread_id = threading.Thread(
